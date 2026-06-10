@@ -1,4 +1,5 @@
 import os
+import argparse
 import joblib
 import warnings
 import pandas as pd
@@ -8,15 +9,14 @@ from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.model_selection import cross_val_score
 
 
-TRAIN_PATH = os.path.join("data", "raw", "train.csv")
-TEST_PATH = os.path.join("data", "raw", "test.csv")
+TRAIN_PATH = os.path.join("data", "preprocessed", "train_features.csv")
+TEST_PATH = os.path.join("data", "preprocessed", "test_features.csv")
 
 MODEL_DIR = "models"
-MODEL_PATH = os.path.join(MODEL_DIR, "linear_regression_model.pkl")
 
 
 def load_data():
@@ -37,76 +37,35 @@ def remove_outliers(df):
     return df
 
 
-def add_features(df):
-    df = df.copy()
-
-    if "TotalSF" not in df.columns:
-        df["TotalSF"] = (
-            df["TotalBsmtSF"].fillna(0)
-            + df["1stFlrSF"].fillna(0)
-            + df["2ndFlrSF"].fillna(0)
-        )
-
-    if "TotalBathrooms" not in df.columns:
-        df["TotalBathrooms"] = (
-            df["FullBath"].fillna(0)
-            + 0.5 * df["HalfBath"].fillna(0)
-            + df["BsmtFullBath"].fillna(0)
-            + 0.5 * df["BsmtHalfBath"].fillna(0)
-        )
-
-    if "TotalPorchSF" not in df.columns:
-        df["TotalPorchSF"] = (
-            df["OpenPorchSF"].fillna(0)
-            + df["EnclosedPorch"].fillna(0)
-            + df["3SsnPorch"].fillna(0)
-            + df["ScreenPorch"].fillna(0)
-        )
-
-    if "HouseAge" not in df.columns:
-        df["HouseAge"] = df["YrSold"] - df["YearBuilt"]
-
-    if "YearsSinceRemodel" not in df.columns:
-        df["YearsSinceRemodel"] = df["YrSold"] - df["YearRemodAdd"]
-
-    if "IsRemodeled" not in df.columns:
-        df["IsRemodeled"] = (df["YearBuilt"] != df["YearRemodAdd"]).astype(int)
-
-    if "HasGarage" not in df.columns:
-        df["HasGarage"] = (df["GarageArea"].fillna(0) > 0).astype(int)
-
-    if "HasBasement" not in df.columns:
-        df["HasBasement"] = (df["TotalBsmtSF"].fillna(0) > 0).astype(int)
-
-    if "HasFireplace" not in df.columns:
-        df["HasFireplace"] = (df["Fireplaces"].fillna(0) > 0).astype(int)
-
-    if "HasPool" not in df.columns:
-        df["HasPool"] = (df["PoolArea"].fillna(0) > 0).astype(int)
-
-    if "OverallQual_TotalSF" not in df.columns:
-        df["OverallQual_TotalSF"] = df["OverallQual"] * df["TotalSF"]
-
-    return df
-
-
 def preprocess(train, test):
     n_train = len(train)
 
     combined = pd.concat([train, test], axis=0)
-    combined = add_features(combined)
 
-    y = combined["SalePrice"] if "SalePrice" in combined.columns else None
+    y = combined["SalePrice"]
     X = combined.drop(columns=["SalePrice"], errors="ignore")
 
     X_train = X.iloc[:n_train]
     X_test = X.iloc[n_train:]
-    y_train = y.iloc[:n_train] if y is not None else None
+    y_train = y.iloc[:n_train]
 
     return X_train, X_test, y_train
 
 
-def build_pipeline(X_train):
+def choose_model(model_name):
+    if model_name == "linear":
+        return LinearRegression()
+
+    if model_name == "ridge":
+        return Ridge(alpha=10)
+
+    if model_name == "lasso":
+        return Lasso(alpha=0.001, max_iter=10000)
+
+    raise ValueError("model_name must be one of: linear, ridge, lasso")
+
+
+def build_pipeline(X_train, model_name):
     numeric_cols = X_train.select_dtypes(include=["int64", "float64"]).columns.tolist()
     categorical_cols = X_train.select_dtypes(include=["object"]).columns.tolist()
 
@@ -125,7 +84,7 @@ def build_pipeline(X_train):
         ("cat", categorical_pipeline, categorical_cols)
     ])
 
-    model = Ridge(alpha=10)
+    model = choose_model(model_name)
 
     pipeline = Pipeline([
         ("preprocessor", preprocessor),
@@ -135,10 +94,10 @@ def build_pipeline(X_train):
     return pipeline
 
 
-def train_model(X_train, y_train):
+def train_model(X_train, y_train, model_name):
     y_log = np.log1p(y_train)
 
-    pipeline = build_pipeline(X_train)
+    pipeline = build_pipeline(X_train, model_name)
 
     scores = cross_val_score(
         pipeline,
@@ -150,6 +109,7 @@ def train_model(X_train, y_train):
 
     rmse_scores = np.sqrt(-scores)
 
+    print(f"Model: {model_name}")
     print(f"CV RMSE log mean: {rmse_scores.mean():.4f}")
     print(f"CV RMSE log std : {rmse_scores.std():.4f}")
 
@@ -160,16 +120,26 @@ def train_model(X_train, y_train):
     return pipeline
 
 
-def save_model(model):
+def get_model_path(model_name):
+    return os.path.join(MODEL_DIR, f"{model_name}_regression_model.pkl")
+
+
+def save_model(model, model_name):
     os.makedirs(MODEL_DIR, exist_ok=True)
-    joblib.dump(model, MODEL_PATH)
-    print(f"Model saved to {MODEL_PATH}")
+
+    model_path = get_model_path(model_name)
+    joblib.dump(model, model_path)
+
+    print(f"Model saved to {model_path}")
 
 
-def load_model():
-    if not os.path.exists(MODEL_PATH):
-        raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
-    return joblib.load(MODEL_PATH)
+def load_model(model_name):
+    model_path = get_model_path(model_name)
+
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Model not found at {model_path}")
+
+    return joblib.load(model_path)
 
 
 def predict(model, X_test):
@@ -178,7 +148,7 @@ def predict(model, X_test):
     return predictions
 
 
-def create_submission(predictions, ids):
+def create_submission(predictions, ids, model_name):
     output_dir = os.path.join("data", "submissions")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -187,23 +157,44 @@ def create_submission(predictions, ids):
         "SalePrice": predictions
     })
 
-    submission_path = os.path.join(output_dir, "linear_regression_submission.csv")
+    submission_path = os.path.join(
+        output_dir,
+        f"{model_name}_regression_submission.csv"
+    )
+
     submission.to_csv(submission_path, index=False)
 
     print(f"Submission saved to {submission_path}")
 
 
-if __name__ == "__main__":
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="linear",
+        choices=["linear", "ridge", "lasso"],
+        help="Choose regression model: linear, ridge, or lasso"
+    )
+
+    args = parser.parse_args()
+    model_name = args.model
+
     train, test = load_data()
 
     train = remove_outliers(train)
 
     X_train, X_test, y_train = preprocess(train, test)
 
-    model = train_model(X_train, y_train)
+    model = train_model(X_train, y_train, model_name)
 
-    save_model(model)
+    save_model(model, model_name)
 
     preds = predict(model, X_test)
 
-    create_submission(preds, test.index)
+    create_submission(preds, test.index, model_name)
+
+
+if __name__ == "__main__":
+    main()
