@@ -111,11 +111,14 @@ def process_feature_file(input_path, output_path):
 def save_feature_data(
     train_path="data/preprocessed/train_preprocessed.csv",
     test_path="data/preprocessed/test_preprocessed.csv",
+    eval_path="data/preprocessed/eval_preprocessed.csv",
     train_output_path="data/preprocessed/train_features.csv",
-    test_output_path="data/preprocessed/test_features.csv"
+    test_output_path="data/preprocessed/test_features.csv",
+    eval_output_path="data/preprocessed/eval_features.csv"
 ):
     process_feature_file(train_path, train_output_path)
     process_feature_file(test_path, test_output_path)
+    process_feature_file(eval_path, eval_output_path)
 
 
 if __name__ == "__main__":

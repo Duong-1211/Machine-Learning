@@ -103,6 +103,16 @@ def preprocess_data(train_df: pd.DataFrame, test_df: pd.DataFrame) -> Tuple[pd.D
 
     return train_clean, test_X_clean
 
+from sklearn.model_selection import train_test_split
+
+def split_train_eval(train_df: pd.DataFrame, test_size: float = 0.2, random_state: int = 42):
+    # Chia tập train thành train và eval
+    train, eval_df = train_test_split(
+        train_df, 
+        test_size=test_size, 
+        random_state=random_state
+    )
+    return train, eval_df
 
 def save_preprocessed_data(
     train_clean: pd.DataFrame,
@@ -124,7 +134,11 @@ def run_preprocessing(generate_feature_files: bool = True) -> Tuple[pd.DataFrame
     test_missing_before = int(test_df.isnull().sum().sum())
 
     train_clean, test_clean = preprocess_data(train_df, test_df)
+
+    train_final, eval_final = split_train_eval(train_clean)
+
     save_preprocessed_data(train_clean, test_clean)
+    eval_final.to_csv(os.path.join(PREPROCESSED_DIR, "eval_preprocessed.csv"))
 
     train_missing_after = int(train_clean.isnull().sum().sum())
     test_missing_after = int(test_clean.isnull().sum().sum())
