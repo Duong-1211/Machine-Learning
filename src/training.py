@@ -77,7 +77,7 @@ def build_model(model_name, X_train):
         return build_pipeline(X_train)
 
     if model_name == "xgboost":
-        from models.xgboost import build_pipeline
+        from src.models.xgboost import build_pipeline
 
         return build_pipeline(X_train)
 
