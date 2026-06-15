@@ -1,14 +1,14 @@
 ===================================================================================
-MODEL PERFORMANCE BENCHMARK REPORT (Generated at: 2026-06-15 21:35:54)
+MODEL PERFORMANCE BENCHMARK REPORT (Generated at: 2026-06-15 22:04:20)
 ===================================================================================
 
-  Model Algorithm  Train Log-RMSE  Eval Log-RMSE CV Log-RMSE (Mean) CV Log-RMSE (Std)  Eval MAE ($)  Eval R² Score  Train Time (sec)
-          XGBOOST         0.02339        0.02358            0.11892           0.00828       3008.42         0.9973            1.4492
-    RANDOM_FOREST         0.04898        0.05256            0.13393           0.00533       6207.42         0.9856            1.4204
-GRADIENT_BOOSTING         0.07845        0.07983            0.12138           0.00545      10919.34         0.9639            0.9473
-           LINEAR         0.08986        0.09382            0.12578           0.00998      11616.32         0.9576            0.1456
-            RIDGE         0.09555        0.10316            0.11414           0.00608      12428.85         0.9525            0.0715
-            LASSO         0.10362        0.11094            0.11201           0.00583      13100.55         0.9449            0.1034
-    DEEP_LEARNING         0.14332        0.14237                N/A               N/A      19234.43         0.8951            4.1450
+  Model Algorithm  Train Log-RMSE  Eval Log-RMSE  CV Log-RMSE (Mean)  CV Log-RMSE (Std)  Eval MAE ($)  Eval R² Score  Train Time (sec)
+          XGBOOST         0.02339        0.02358             0.02338            0.00078       3008.42         0.9973            1.9851
+    RANDOM_FOREST         0.04898        0.05256             0.04893            0.00230       6207.42         0.9856            1.2790
+GRADIENT_BOOSTING         0.07845        0.07983             0.07845            0.00114      10919.34         0.9639            2.3370
+           LINEAR         0.08986        0.09382             0.08967            0.00581      11616.32         0.9576            0.1390
+            RIDGE         0.09555        0.10316             0.09543            0.00482      12428.85         0.9525            0.0568
+            LASSO         0.10362        0.11094             0.10348            0.00526      13100.55         0.9449            0.0948
+    DEEP_LEARNING         0.14332        0.14237             0.14311            0.00791      19234.43         0.8951            8.5965
 
 * Note: Lower Eval Log-RMSE values indicate superior predictive accuracy.
