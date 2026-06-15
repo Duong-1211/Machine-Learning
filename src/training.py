@@ -8,9 +8,12 @@ import pandas as pd
 from src.config import (
     MODEL_DIR,
     TEST_FEATURES_PATH,
+    EVAL_FEATURES_PATH,
     TRAIN_FEATURES_PATH,
+    DEFAULT_RANDOM_STATE,
 )
 
+from src.evaluation import print_evaluation_report
 
 def ensure_feature_data_exists():
     if os.path.exists(TRAIN_FEATURES_PATH) and os.path.exists(TEST_FEATURES_PATH):
@@ -24,8 +27,9 @@ def ensure_feature_data_exists():
 def load_feature_data():
     ensure_feature_data_exists()
     train_df = pd.read_csv(TRAIN_FEATURES_PATH, index_col="Id")
+    eval_df = pd.read_csv(EVAL_FEATURES_PATH, index_col="Id")
     test_df = pd.read_csv(TEST_FEATURES_PATH, index_col="Id")
-    return train_df, test_df
+    return train_df, eval_df, test_df
 
 
 def remove_outliers(df):
@@ -40,11 +44,15 @@ def remove_outliers(df):
     return df
 
 
-def split_features_target(train_df, test_df):
+def split_features_target(train_df, eval_df, test_df):
     X_train = train_df.drop(columns=["SalePrice"])
     y_train = train_df["SalePrice"]
+
+    X_eval = eval_df.drop(columns=["SalePrice"])
+    y_eval = eval_df["SalePrice"]
+
     X_test = test_df.copy()
-    return X_train, y_train, X_test
+    return X_train, y_train, X_eval, y_eval, X_test
 
 
 def get_model_path(model_name):
@@ -69,7 +77,7 @@ def build_model(model_name, X_train):
         return build_pipeline(X_train)
 
     if model_name == "xgboost":
-        from src.models.xgboost_model import build_pipeline
+        from models.xgboost import build_pipeline
 
         return build_pipeline(X_train)
 
@@ -92,9 +100,9 @@ def save_model(model_name, model):
 
 
 def train_model(model_name, epochs=50, cv_folds=0):
-    train_df, test_df = load_feature_data()
+    train_df, eval_df, test_df = load_feature_data()
     train_df = remove_outliers(train_df)
-    X_train, y_train, X_test = split_features_target(train_df, test_df)
+    X_train, y_train, X_eval, y_eval, X_test = split_features_target(train_df, eval_df, test_df)
 
     if model_name == "deep_learning":
         from src.models.deep_learning import train_model as train_deep_learning_model
@@ -117,12 +125,16 @@ def train_model(model_name, epochs=50, cv_folds=0):
             scoring="neg_mean_squared_error",
         )
         rmse_scores = np.sqrt(-scores)
+        print(f"--- {model_name.upper()} Cross-Validation ---")
         print(f"CV RMSE log mean: {rmse_scores.mean():.4f}")
         print(f"CV RMSE log std : {rmse_scores.std():.4f}")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model.fit(X_train, y_log)
+
+    y_pred_eval_log = model.predict(X_eval)
+    print_evaluation_report(y_eval, y_pred_eval_log, set_name="Eval")
 
     save_model(model_name, model)
     return model, X_test, test_df.index
