@@ -17,13 +17,34 @@ st.set_page_config(
     layout="wide",
 )
 
-MODEL_PATH = os.path.join("models", "xgboost_model.pkl")
-FEATURE_TRAIN_PATH = os.path.join("data", "preprocessed", "train_features.csv")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODEL_CANDIDATES = (
+    "xgboost_model.pkl",
+    "random_forest_model.pkl",
+    "gradient_boosting_model.pkl",
+    "ridge_model.pkl",
+    "lasso_model.pkl",
+    "linear_model.pkl",
+)
+FEATURE_TRAIN_PATH = os.path.join(BASE_DIR, "data", "preprocessed", "train_features.csv")
+
+
+def resolve_model_path():
+    model_dir = os.path.join(BASE_DIR, "models")
+    for filename in MODEL_CANDIDATES:
+        candidate = os.path.join(model_dir, filename)
+        if os.path.exists(candidate):
+            return candidate
+
+    searched = ", ".join(MODEL_CANDIDATES)
+    raise FileNotFoundError(
+        f"No trained model found in {model_dir}. Expected one of: {searched}"
+    )
 
 
 @st.cache_resource
 def load_model():
-    return joblib.load(MODEL_PATH)
+    return joblib.load(resolve_model_path())
 
 
 @st.cache_data
